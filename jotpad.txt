@@ -4,6 +4,7 @@ install java: sudo yum install java
 check java version: java -version
 
 -----Install Jenkins----
+2f55c280782045b88152af21b1f6e3e7
 
 sudo wget -O /etc/yum.repos.d/jenkins.repo \
     https://pkg.jenkins.io/redhat/jenkins.repo
@@ -16,6 +17,7 @@ sudo yum install jenkins
 ----Jenkis operations----
 check if is running: sudo systemctl status jenkins
 fire up jenkins (start): sudo systemctl start jenkins
+shut down jenkins: sudo systemctl stop jenkins
 enable Jenkins to start on boot: sudo systemctl enable jenkins
 check the machine is set start jenkins on boot: sudo systemctl is-enabled jenkins
 disable jenkins on boot: sudo systemctl disable jenkins
@@ -25,3 +27,12 @@ connect to jenkins cli: wget http://34.216.203.164:8080/jnlpJars/jenkins-cli.jar
 
 ----Docker---
 check current running container: docker ps
+stop all container: $(docker ps -aq)
+remove all container: docker rm $(docker ps -aq)
+remove all images: docker rmi $(docker images -q)
+
+start the container: docker start <container_name>
+stop the container: doker kill <container_name>
+
+
+
