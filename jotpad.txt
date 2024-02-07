@@ -1,0 +1,27 @@
+----Note for Jenkins----
+jenkins needs java, have to install java
+install java: sudo yum install java
+check java version: java -version
+
+-----Install Jenkins----
+
+sudo wget -O /etc/yum.repos.d/jenkins.repo \
+    https://pkg.jenkins.io/redhat/jenkins.repo
+sudo rpm --import https://pkg.jenkins.io/redhat/jenkins.io-2023.key
+sudo yum upgrade
+# Add required dependencies for the jenkins package
+sudo yum install fontconfig java-17-openjdk
+sudo yum install jenkins
+
+----Jenkis operations----
+check if is running: sudo systemctl status jenkins
+fire up jenkins (start): sudo systemctl start jenkins
+enable Jenkins to start on boot: sudo systemctl enable jenkins
+check the machine is set start jenkins on boot: sudo systemctl is-enabled jenkins
+disable jenkins on boot: sudo systemctl disable jenkins
+connect to jenkins cli: wget http://34.216.203.164:8080/jnlpJars/jenkins-cli.jar
+
+
+
+----Docker---
+check current running container: docker ps
