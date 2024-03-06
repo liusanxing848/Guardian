@@ -35,4 +35,11 @@ start the container: docker start <container_name>
 stop the container: doker kill <container_name>
 
 
+--nuget--
+AWSSDK.KeyManagementService
+AWSSDK.RDS
+MySql.Data
+Newtonsoft.Json
+System.IdentityModel.Tokens.Jwt
+YamlDotNet
 

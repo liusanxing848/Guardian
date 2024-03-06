@@ -34,36 +34,8 @@ x64/
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 
-*_i.c
-*_p.c
-*.ilk
-*.meta
-*.obj
-*.pch
-*.pdb
-*.pgc
-*.pgd
-*.rsp
-*.sbr
-*.tlb
-*.tli
-*.tlh
-*.tmp
-*.tmp_proj
-*.log
-*.vspscc
-*.vssscc
-.builds
-*.pidb
-*.scc
 
-# Visual C++ cache files
-ipch/
-*.aps
-*.ncb
-*.opensdf
-*.sdf
-*.cachefile
+
 
 # Visual Studio profiler
 *.psess
@@ -139,17 +111,10 @@ Backup*/
 UpgradeLog*.XML
 UpgradeLog*.htm
 
-# vim
-*.txt~
-*.swp
-*.swo
 
 # Temp files when opening LibreOffice on ubuntu
 .~lock.*
  
-# svn
-.svn
-
 # CVS - Source Control
 **/CVS/
 

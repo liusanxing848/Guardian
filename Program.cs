@@ -49,4 +49,6 @@ IWebHostEnvironment environment = app.Environment;
 app.MapControllers();
 
 
+GuardianService.Util.Guardian.InitializeAppSettings();
+
 app.Run();
