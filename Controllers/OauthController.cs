@@ -46,6 +46,8 @@ namespace GuardianService.Controllers
             string client_id = headerCredentials[0];
             string client_secret = headerCredentials[1];
 
+            //Trigger service method here
+
             // Validate client_id and client_secret
             // Replace this with your validation logic
             if (client_id != "123" || client_secret != "abc")

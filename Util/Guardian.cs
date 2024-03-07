@@ -8,7 +8,7 @@ namespace GuardianService.Util
     {
         public static void InitializeAppSettings()
         {
-            string filePath = @"..\Guardian\Configs";
+            string filePath = @"..\Guardian\Configs\";
             string kmsConfigFileName = "KMSConfigs.yaml";
             string rdsConfigFileName = "RDSConfigs.yaml";
 

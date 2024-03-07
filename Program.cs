@@ -50,5 +50,6 @@ app.MapControllers();
 
 
 GuardianService.Util.Guardian.InitializeAppSettings();
+GuardianService.TEST.LOCAL_DEBUG.SHOW_GUARDIAN_CONFIGS();
 
 app.Run();
