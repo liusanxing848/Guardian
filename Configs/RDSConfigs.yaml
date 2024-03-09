@@ -1,4 +1,5 @@
 SERVER: "guardian.cja4u2wu8omm.us-west-2.rds.amazonaws.com"
 USERNAME: "guardian"
 PASSWORD: "guardian"
+DATABASE: "Guardian"
 PORT: "3306"

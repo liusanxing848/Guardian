@@ -7,6 +7,7 @@ namespace GuardianService.Configs
         public static class RDS
         {
             public static string? SERVER;
+            public static string? DATABASE;
             public static string? USERNAME;
             public static string? PASSWORD;
             public static string? PORT;

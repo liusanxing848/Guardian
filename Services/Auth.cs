@@ -2,10 +2,10 @@
 {
     public class Auth
     {
-        public static bool ValidateOAuthClient()
+        public static bool ValidateOAuthClient(string clientId, string clientSecret)
         {
-
-            return true;
+            bool clientValidationResult = AWS.RDS.Auth.ValidateOAuthClient(clientId, clientSecret);
+            return clientValidationResult;
         }
     }
 }

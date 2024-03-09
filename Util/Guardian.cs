@@ -16,6 +16,11 @@ namespace GuardianService.Util
             LoadRDSConfigs(filePath + rdsConfigFileName);
         }
 
+        public static void RunAppConnectionCheckList()
+        {
+            Services.AWS.RDS.CheckAWSRDSConnection();
+        }
+
         private static void LoadKMSConfigs(string path)
         {
             dynamic kmsConfigObj = DeserializeYAMLtoObject(path);
@@ -29,6 +34,7 @@ namespace GuardianService.Util
         {
             dynamic rdsConfigObj = DeserializeYAMLtoObject(path);
             GUARDIAN_CONFIGS.RDS.SERVER = rdsConfigObj["SERVER"];
+            GUARDIAN_CONFIGS.RDS.DATABASE = rdsConfigObj["DATABASE"];
             GUARDIAN_CONFIGS.RDS.USERNAME = rdsConfigObj["USERNAME"];
             GUARDIAN_CONFIGS.RDS.PASSWORD = rdsConfigObj["PASSWORD"];
             GUARDIAN_CONFIGS.RDS.PORT = rdsConfigObj["PORT"];

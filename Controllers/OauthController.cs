@@ -1,4 +1,5 @@
-﻿ using Microsoft.AspNetCore.Authorization;
+﻿using GuardianService.Services.AWS;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -20,6 +21,51 @@ namespace GuardianService.Controllers
             this.configuration = configuration;
         }
 
+        [HttpPost("getPublicKey")]
+        [AllowAnonymous]
+        public IActionResult GetPublicKey(
+            [FromHeader(Name = "Authorization")] string authorization,
+            [FromForm] string grant_type)
+        {
+            // Check for Basic Authentication and grant_type
+            if (string.IsNullOrWhiteSpace(authorization) || !authorization.StartsWith("Basic ") || grant_type != "client_credentials")
+            {
+                return Unauthorized();
+            }
+
+            // Extract credentials from Authorization header
+            string encodedCredentials = authorization.Substring("Basic ".Length).Trim();
+            string decodedCredentials = Encoding.UTF8.GetString(Convert.FromBase64String(encodedCredentials));
+            string[] headerCredentials = decodedCredentials.Split(':');
+
+            if (headerCredentials.Length != 2)
+            {
+                return Unauthorized();
+            }
+
+            string clientId = headerCredentials[0];
+            string clientSecret = headerCredentials[1];
+
+            //Validate client credentials
+            bool clientValidated = Services.Auth.ValidateOAuthClient(clientId, clientSecret);
+
+            if (!clientValidated)
+            {
+                return Unauthorized();
+            }
+
+            string publicKey = Services.AWS.KMS.GetPublicKey();
+
+            dynamic returnBody = new
+            {
+                app = "Guardian",
+                time = DateTime.Now,
+                sub = clientId,
+                publickey = publicKey
+            };
+
+            return Ok(returnBody);
+        }
 
         [HttpPost("token")]
         [AllowAnonymous]
@@ -43,17 +89,17 @@ namespace GuardianService.Controllers
                 return Unauthorized();
             }
 
-            string client_id = headerCredentials[0];
-            string client_secret = headerCredentials[1];
+            string clientId = headerCredentials[0];
+            string clientSecret = headerCredentials[1];
 
-            //Trigger service method here
+            //Validate client credentials
+            bool clientValidated =  Services.Auth.ValidateOAuthClient(clientId, clientSecret);
 
-            // Validate client_id and client_secret
-            // Replace this with your validation logic
-            if (client_id != "123" || client_secret != "abc")
+            if(!clientValidated) 
             {
                 return Unauthorized();
             }
+
 
             //JWT
             var issuer = configuration["Jwt:Issuer"];

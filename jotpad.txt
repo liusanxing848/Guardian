@@ -43,3 +43,13 @@ Newtonsoft.Json
 System.IdentityModel.Tokens.Jwt
 YamlDotNet
 
+
+
+Dev not:
+8-March: 
+stopping point, succesfully can get public key, and token. 
+token payload is empty, try to put the token payload value into it. 
+for example, token expiration time, time creation, sub(asscociate with any id?), scope? is SSO? being used?
+do I have to create a new db to store these token? or issued token? how about create token_control_number
+use this control number pluse clientid, plus token and token's info store into a db, and then query this db
+to verify?
