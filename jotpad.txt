@@ -53,3 +53,10 @@ for example, token expiration time, time creation, sub(asscociate with any id?),
 do I have to create a new db to store these token? or issued token? how about create token_control_number
 use this control number pluse clientid, plus token and token's info store into a db, and then query this db
 to verify?
+
+10-March:
+Completed: getAccessToken endpont
+feature: create access token obj, and create refreshToken object then attach the refresh token to the accessToken
+need more work:
+current refresh token can create multiple active record associat with one clientId, thus one client can have many refresh tokens
+design a feature that if creating new client, check current client has a refresh token, if true, no more refresh token.

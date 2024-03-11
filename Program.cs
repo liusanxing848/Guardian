@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using MySqlX.XDevAPI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,10 +51,15 @@ app.MapControllers();
 
 
 GuardianService.Util.Guardian.InitializeAppSettings();
-GuardianService.TEST.LOCAL_DEBUG.SHOW_GUARDIAN_CONFIGS();
-GuardianService.Util.Guardian.RunAppConnectionCheckList();
+
+//test below
+//GuardianService.TEST.LOCAL_DEBUG.SHOW_GUARDIAN_CONFIGS();
+//GuardianService.Util.Guardian.RunAppConnectionCheckList();
 // GuardianService.Util.Data.AddOauthClient(); //only use when need add new client
-GuardianService.TEST.LOCAL_DEBUG.VALIDATE_SAMPLE_OAUTH_CLIENT();
-GuardianService.TEST.LOCAL_DEBUG.GET_PUBLIC_KEY();
-GuardianService.TEST.LOCAL_DEBUG.GET_JWT();
+//GuardianService.TEST.LOCAL_DEBUG.VALIDATE_SAMPLE_OAUTH_CLIENT();
+//await GuardianService.TEST.LOCAL_DEBUG.GET_JWT();
+//await GuardianService.Services.Auth.getAccessToken("77b177aa3835477cb709b7b6b3322c71");
+//await GuardianService.TEST.LOCAL_DEBUG.GetAccessToken();
+//await GuardianService.TEST.LOCAL_DEBUG.GetRefreshToken();
+
 app.Run();

@@ -1,6 +1,7 @@
 ﻿using Amazon.KeyManagementService;
 using Amazon.KeyManagementService.Model;
 using GuardianService.Configs;
+using GuardianService.Model;
 using GuardianService.Util;
 using System.Text;
 
@@ -31,12 +32,8 @@ namespace GuardianService.Services.AWS
             GetPublicKey();
         }
 
-        public static void getPublicKeyTest()
-        {
-             GetPublicKey();
-        }
 
-        public static string GetPublicKey()
+        public static async Task<string> GetPublicKey()
         {
             GetPublicKeyRequest request = new GetPublicKeyRequest
             {
@@ -45,7 +42,7 @@ namespace GuardianService.Services.AWS
 
             try
             {
-                GetPublicKeyResponse response = kmsClient!.GetPublicKeyAsync(request).GetAwaiter().GetResult();
+                GetPublicKeyResponse response = await kmsClient!.GetPublicKeyAsync(request);
                 string publicKey = Convert.ToBase64String(response.PublicKey.ToArray());
                 GLogger.Log("KMS", "Get Public key: " + publicKey);
                 if(PUBLIC_KEY != publicKey)
@@ -61,17 +58,12 @@ namespace GuardianService.Services.AWS
             return "error";
         }
 
-        public static string GetJWT()
+        public static async Task<string> GetJWTWithPayloadOnly(dynamic payload)
         {
             dynamic header = new
             {
                 alg = "RS256",
                 typ = "JWT"
-            };
-
-            dynamic payload = new
-            {
-
             };
 
             string JsonHeader = Newtonsoft.Json.JsonConvert.SerializeObject(header);
@@ -92,7 +84,7 @@ namespace GuardianService.Services.AWS
 
             try
             {
-                SignResponse signingResponse = kmsClient.SignAsync(signRequest).GetAwaiter().GetResult();
+                SignResponse signingResponse = await kmsClient!.SignAsync(signRequest);
                 byte[] signature = signingResponse.Signature.ToArray();
                 string encodedSignature = Base64UrlEncode(signature);
                 string jwt = $"{encodedHeader}.{encodedPayload}.{encodedSignature}";
@@ -106,6 +98,51 @@ namespace GuardianService.Services.AWS
             return "error";
 
         }
+
+        public static async Task<string> GetAccessToken()
+        {
+            try
+            {
+                dynamic request = new GenerateRandomRequest
+                {
+                    NumberOfBytes = 32
+                };
+
+                GenerateRandomResponse response = await kmsClient!.GenerateRandomAsync(request);
+
+                string accessToken = Convert.ToBase64String(response.Plaintext.ToArray());
+                GLogger.LogGreen("SUCCESS", "Access-Token", $"Value: {accessToken}");
+                return accessToken;
+            }
+            catch(Exception ex)
+            {
+                GLogger.LogRed("ERR", "AccessToken", $"Failed to get Access Token, Reason: " + ex.Message);
+                return "error";
+            }
+        }
+
+        public static async Task<string> GetRefreshToken()
+        {
+            try
+            {
+                dynamic request = new GenerateRandomRequest
+                {
+                    NumberOfBytes = 256
+                };
+
+                GenerateRandomResponse response = await kmsClient!.GenerateRandomAsync(request);
+
+                string refreshToken = Convert.ToBase64String(response.Plaintext.ToArray());
+                GLogger.LogGreen("SUCCESS", "Refresh-Token", $"Value: {refreshToken}");
+                return refreshToken;
+            }
+            catch (Exception ex)
+            {
+                GLogger.LogRed("ERR", "RefreshToken", $"Failed to get Access Token, Reason: " + ex.Message);
+                return "error";
+            }
+        }
+
         private static bool KMSpreloadCheck()
         {
             if (string.IsNullOrEmpty(GUARDIAN_CONFIGS.KMS.ARN) ||
@@ -131,6 +168,7 @@ namespace GuardianService.Services.AWS
                 .Replace("=", ""); // Remove padding for Base64Url
             return output;
         }
+
         private static string Base64UrlEncode(string input)
         {
             var output = Convert.ToBase64String(Encoding.UTF8.GetBytes(input))

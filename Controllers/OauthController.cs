@@ -1,4 +1,5 @@
-﻿using GuardianService.Services.AWS;
+﻿using GuardianService.Model;
+using GuardianService.Services.AWS;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -23,7 +24,7 @@ namespace GuardianService.Controllers
 
         [HttpPost("getPublicKey")]
         [AllowAnonymous]
-        public IActionResult GetPublicKey(
+        public async Task<IActionResult> GetPublicKey(
             [FromHeader(Name = "Authorization")] string authorization,
             [FromForm] string grant_type)
         {
@@ -54,12 +55,12 @@ namespace GuardianService.Controllers
                 return Unauthorized();
             }
 
-            string publicKey = Services.AWS.KMS.GetPublicKey();
+            string publicKey = await Services.AWS.KMS.GetPublicKey();
 
             dynamic returnBody = new
             {
                 app = "Guardian",
-                time = DateTime.Now,
+                time = DateTime.UtcNow,
                 sub = clientId,
                 publickey = publicKey
             };
@@ -69,7 +70,7 @@ namespace GuardianService.Controllers
 
         [HttpPost("token")]
         [AllowAnonymous]
-        public IActionResult Token(
+        public async Task<IActionResult> Token(
             [FromHeader(Name = "Authorization")] string authorization,
             [FromForm] string grant_type)
         {
@@ -101,38 +102,28 @@ namespace GuardianService.Controllers
             }
 
 
-            //JWT
-            var issuer = configuration["Jwt:Issuer"];
-            var audience = configuration["Jwt:Audience"];
-            var key = Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!);
-
-            var signingCredentials = new SigningCredentials(
-                        new SymmetricSecurityKey(key),
-                        SecurityAlgorithms.HmacSha512Signature
-                    );
-
-
-
-
-            var tokenDescriptor = new SecurityTokenDescriptor
+            //generate actual access token value
+            Model.AccessToken? accessToken = await Services.Auth.getAccessToken(clientId);
+            dynamic payload = new
             {
-                Subject = new ClaimsIdentity(new Claim[]
-                {
-                new Claim(ClaimTypes.Name, "a test game"),
-                new Claim(JwtRegisteredClaimNames.Sub, "clientID"),
-                new Claim(JwtRegisteredClaimNames.Email, "client@company.com"),
-
-                }),
-                Issuer = issuer,
-                Audience = audience,
-                Expires = DateTime.UtcNow.AddHours(1),
-                SigningCredentials = signingCredentials
+                token_type = "bearer",
+                access_token = accessToken!.value,
+                expireTime_zulu = accessToken.expirationAt,
+                isSSO = accessToken.isSSO,
+                scopes = accessToken.scopes,
+                refreshToken = accessToken.refreshToken,
+                sub = clientId
             };
 
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            var jwtToken = tokenHandler.WriteToken(token);
-            return Ok(new { access_token = jwtToken, token_type = "bearer" });
+            string jwtTokenValue = await Services.AWS.KMS.GetJWTWithPayloadOnly(payload);
+
+            dynamic returnBody = new
+            {
+                JWT_value = jwtTokenValue,
+                alg = "RS256"
+            };
+
+            return Ok(returnBody);
         }
 
         [HttpPost("verify")]

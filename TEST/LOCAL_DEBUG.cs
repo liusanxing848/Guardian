@@ -24,13 +24,40 @@ namespace GuardianService.TEST
             Services.Auth.ValidateOAuthClient(clientId, clientSecret);
         }
 
-        public static void GET_PUBLIC_KEY()
+        public static async Task GET_PUBLIC_KEY()
         {
-            Services.AWS.KMS.getPublicKeyTest();
+            await Services.AWS.KMS.GetPublicKey();
         }
-        public static void GET_JWT()
+        public static async Task GET_JWT()
         {
-            Services.AWS.KMS.GetJWT();
+            await Services.AWS.KMS.GetJWTWithPayloadOnly(new { });
+        }
+        public static async Task GetAccessToken()
+        {
+            await Services.AWS.KMS.GetAccessToken();
+        }
+
+        public static async Task GetRefreshToken()
+        {
+            await Services.AWS.KMS.GetRefreshToken();
+        }
+
+        private static void INSERT_TEST_ACCESSTOKEN_OBJ() //turn off to private, only need to load once
+        {
+            Model.AccessToken token = new Model.AccessToken();
+            token.value = "testTokenValue";
+            token.ssoUsed = false;
+            token.isActive = true;
+            token.isSSO = false;
+            token.createdAt = DateTime.UtcNow;
+            token.expirationDuration = GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_30D;
+            token.expirationAt = Services.Auth.CalculateExpirationDateTime(token.createdAt, (int)token.expirationDuration!);
+            token.scopes = "currently no scopes";
+            token.associatedClient = "testClientId";
+            token.refreshToken = "testRefreshTokenId";
+            token.state = GUARDIAN_CONFIGS.OAuth.TOKEN_STATE_ACTIVE;
+            token.issuer = "Guardian";
+            Services.AWS.RDS.Auth.SaveNewAccessToken(token);
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿using GuardianService.Model;
+﻿using GuardianService.Configs;
+using GuardianService.Model;
+using Microsoft.IdentityModel.Tokens;
 
 namespace GuardianService.Util
 {
@@ -13,8 +15,24 @@ namespace GuardianService.Util
             client.grantTypes = "client_credentials";
             client.businessCode = "SMUQA";
             client.isActive = true;
+        }
 
-            Services.AWS.RDS.Auth.InsertNewOAuthClient(client);
+        public static AccessToken DUMMY_VOID_TOKEN(string clientId)
+        {
+            AccessToken token = new AccessToken();
+            token.value = "nullValueToken";
+            token.isSSO = false;
+            token.ssoUsed = false;
+            token.issuer = "Guardian";
+            token.state = GUARDIAN_CONFIGS.OAuth.TOKEN_STATE_EXPIRED;
+            token.expirationDuration = 0;
+            token.createdAt = DateTime.UtcNow;
+            token.expirationAt = DateTime.UtcNow;
+            token.associatedClient = clientId;
+            token.refreshToken = "null value";
+            token.scopes = "null";
+            token.isActive = false;
+            return token;
         }
     }
 }
