@@ -3,6 +3,8 @@ using Amazon.KeyManagementService.Model;
 using GuardianService.Configs;
 using GuardianService.Model;
 using GuardianService.Util;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
 using System.Text;
 
 
@@ -143,6 +145,18 @@ namespace GuardianService.Services.AWS
             }
         }
 
+        public static bool VerifyJwt(string jwtToken, string publicKeyBase64)
+        {
+            JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
+            JwtSecurityToken jwtSecurityToken = handler.ReadJwtToken(jwtToken);
+
+            string encodedHeaderPayload = $"{Base64UrlEncode(jwtSecurityToken.Header.SerializeToJson())}.{Base64UrlEncode(jwtSecurityToken.Payload.SerializeToJson())}";
+            byte[] signature = Base64UrlDecode(jwtSecurityToken.RawSignature);
+
+            return GetRsaProviderFromBase64EncodedPublicKey(publicKeyBase64)
+                   .VerifyData(Encoding.UTF8.GetBytes(encodedHeaderPayload), SHA256.Create(), signature);
+
+        }
         private static bool KMSpreloadCheck()
         {
             if (string.IsNullOrEmpty(GUARDIAN_CONFIGS.KMS.ARN) ||
@@ -176,6 +190,30 @@ namespace GuardianService.Services.AWS
                 .Replace('/', '_')
                 .TrimEnd('=');
             return output;
+        }
+        private static byte[] Base64UrlDecode(string input)
+        {
+            string output = input;
+            output = output.Replace('-', '+'); // 62nd char of encoding
+            output = output.Replace('_', '/'); // 63rd char of encoding
+
+            switch (output.Length % 4) // Pad with trailing '='s
+            {
+                case 0: break; // No pad chars in this case
+                case 2: output += "=="; break; // Two pad chars
+                case 3: output += "="; break; // One pad char
+                default: throw new Exception("Illegal base64url string!");
+            }
+
+            var converted = Convert.FromBase64String(output); // Standard base64 decoder
+            return converted;
+        }
+        private static RSACryptoServiceProvider GetRsaProviderFromBase64EncodedPublicKey(string publicKeyBase64)
+        {
+            byte[] publicKeyBytes = Convert.FromBase64String(publicKeyBase64);
+            RSACryptoServiceProvider rsaProvider = new RSACryptoServiceProvider();
+            rsaProvider.ImportSubjectPublicKeyInfo(publicKeyBytes, out _);
+            return rsaProvider;
         }
     }
 }

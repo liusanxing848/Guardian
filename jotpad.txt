@@ -55,8 +55,22 @@ use this control number pluse clientid, plus token and token's info store into a
 to verify?
 
 10-March:
-Completed: getAccessToken endpont
+Completed: getAccessToken endpoint
 feature: create access token obj, and create refreshToken object then attach the refresh token to the accessToken
 need more work:
 current refresh token can create multiple active record associat with one clientId, thus one client can have many refresh tokens
 design a feature that if creating new client, check current client has a refresh token, if true, no more refresh token.
+
+11-MARCH
+Completed: verifyJWTToken endpoint
+feature: will delegate to verify the jwt token without client send public key, also, have to keep in mind that
+have to provide to client a way to verify JTW by themselves with the pulbic key we provided.
+Fixed bug: when renewed access_token issued/refreshed, the expiration date is not displayed properly in the
+JWT payload, because the expiration date is not been giving any value, however over the mySQL DB, this value has
+been properly set up, the bug will result publishing wrong info, and also will result JWT token value looks exactly
+the same everytime refresh the token, in theory, the jwt token should be different everytime becuase of the time stamp
+in the access_token should be different every time
+Future feature: next time should add new feature that that refresh token to get new access_token. 
+but keep in mind: currently, when giving out any access_token either from refresh or issue new one, there's no validation
+for the refresh token, this feature should add into the logi flow.
+And also should expose new enpoint, or guide customer to retrieve new access-token to get new refersh token.

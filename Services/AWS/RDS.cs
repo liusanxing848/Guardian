@@ -337,6 +337,8 @@ namespace GuardianService.Services.AWS
                                     refreshedToken.scopes = scopes;
                                     refreshedToken.issuer = issuer;
                                     refreshedToken.refreshToken = refreshToken;
+                                    refreshedToken.expirationAt = Services.Auth.CalculateExpirationDateTime(DateTime.UtcNow, (int)GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_10M!);
+                                    refreshedToken.associatedClient = clientId;
 
                                     return refreshedToken;
                                 }

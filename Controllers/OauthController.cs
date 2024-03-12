@@ -126,11 +126,70 @@ namespace GuardianService.Controllers
             return Ok(returnBody);
         }
 
-        [HttpPost("verify")]
-        [Authorize]
-        public IActionResult Verify([FromBody] JsonElement jsonElement)
+        [HttpPost("verifyJWT")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VerifyJWTToken(
+             [FromHeader(Name = "Authorization")] string authorization,
+            [FromBody] JsonElement jsonElement)
         {
-            return Ok(new { message = "JWT ok!" });
+            await Console.Out.WriteLineAsync("received request");
+            // Check for Basic Authentication and grant_type
+            if (string.IsNullOrWhiteSpace(authorization) || !authorization.StartsWith("Basic "))
+            {
+                await Console.Out.WriteLineAsync("failed at the header");
+                return Unauthorized();
+            }
+
+            // Extract credentials from Authorization header
+            string encodedCredentials = authorization.Substring("Basic ".Length).Trim();
+            string decodedCredentials = Encoding.UTF8.GetString(Convert.FromBase64String(encodedCredentials));
+            string[] headerCredentials = decodedCredentials.Split(':');
+
+            if (headerCredentials.Length != 2)
+            {
+                await Console.Out.WriteLineAsync("failed at wrong credential format");
+
+                return Unauthorized();
+            }
+
+            string clientId = headerCredentials[0];
+            string clientSecret = headerCredentials[1];
+
+            //Validate client credentials
+            bool clientValidated = Services.Auth.ValidateOAuthClient(clientId, clientSecret);
+
+            if (!clientValidated)
+            {
+                await Console.Out.WriteLineAsync("failed to verify client");
+                return Unauthorized();
+            }
+
+            //Working on Body
+            if (jsonElement.TryGetProperty("jwt", out JsonElement jwtTokenElement))
+            {
+                string jwtToken = jwtTokenElement.GetString()!;
+
+                // Now that you have the JWT token, you can verify it or use it as needed
+                // For example, verify the token
+                bool isValidToken = await Services.Auth.ValidateJWTToken(jwtToken);
+
+                if (isValidToken)
+                {
+                    // Token is valid, continue with your logic
+                    return Ok(new {JWT = "VALID!"}); // Or any appropriate action result
+                }
+                else
+                {
+                    // Token is invalid or verification failed
+                    return Ok(new { JWT = "NOT VALID!" }); // Or any appropriate action result based on your security logic
+                }
+            }
+            else
+            {
+                // "jwt" property not found in the JSON body
+                return BadRequest("JWT token is missing.");
+            }
+
         }
     }
 }

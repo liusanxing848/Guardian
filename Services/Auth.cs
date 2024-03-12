@@ -43,6 +43,22 @@ namespace GuardianService.Services
             DateTime expirationDateTime = startTime.AddSeconds(duration);
             return expirationDateTime;
         }
+
+        public static async Task<bool> ValidateJWTToken(string jwtToken)
+        {
+            string publicKey = await Services.AWS.KMS.GetPublicKey();
+            bool IsJWTValid = Services.AWS.KMS.VerifyJwt(jwtToken, publicKey);
+            if (IsJWTValid) 
+            {
+                GLogger.LogGreen("Success", "JWT-Verification", $"{jwtToken} \nReturns VERIFIED!");   
+            }
+            else
+            {
+                GLogger.LogRed("Fail", "JWT-Verification", $"{jwtToken} \nReturns INVALID!");
+            }
+
+            return IsJWTValid;
+        }
     }
 }
 
