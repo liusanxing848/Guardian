@@ -82,8 +82,8 @@ all expired, and state should not active records will turn to isActive = false, 
 inactive. 
 Future Feature (next day task): 
 implement:
--check current access_token
--check current refresh_token
+-check current access_token [update: completed]
+-check current refresh_token [update: completed]
 -revoke current access_token
 -revoke current refresh_token
 -refresh access_token by the refreshtoken

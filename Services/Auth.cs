@@ -59,6 +59,16 @@ namespace GuardianService.Services
 
             return IsJWTValid;
         }
+
+        public static Model.AccessToken GetAccessTokenByValue(string accessToken) 
+        {
+            return Services.AWS.RDS.Auth.GetAccessTokenByTokenValue(accessToken);
+        }
+
+        public static Model.RefreshToken GetRrefreshTokenByValue(string refreshToken)
+        {
+            return Services.AWS.RDS.Auth.GetRefreshTokenByTokenValue(refreshToken);
+        }
     }
 }
 

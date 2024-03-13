@@ -388,6 +388,89 @@ namespace GuardianService.Services.AWS
                 return Util.Data.DUMMY_VOID_TOKEN(clientId);
             }
 
+            public static Model.AccessToken GetAccessTokenByTokenValue(string tokenValue)
+            {
+                Model.AccessToken accessToken = new Model.AccessToken();
+                string query = "SELECT accessToken, state, ssoUsed, isSSO, isActive, expirationAt, associatedClient, scopes, issuer " +
+                               "FROM AccessToken " +
+                               "WHERE accessToken = @TokenValue " +
+                               "LIMIT 1";
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-AccessToken", $"Start retro token for token: {tokenValue}");
+                    MySqlCommand command = new MySqlCommand(query, RDS.conn);
+                    command.Parameters.AddWithValue("@TokenValue", tokenValue);
+
+                    using (MySqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            string? accessTokenValue = reader["accessToken"] as string;
+                            string? state = reader["state"] as string;
+                            bool ssoUsed = reader.GetBoolean(reader.GetOrdinal("ssoUsed"));
+                            bool isSSO = reader.GetBoolean(reader.GetOrdinal("isSSO"));
+                            bool isActive = reader.GetBoolean(reader.GetOrdinal("isActive"));
+                            string? scopes = reader["scopes"] as string;
+                            DateTime? expirationAt = reader.GetDateTime(reader.GetOrdinal("expirationAt"));
+                            string? associatedClient = reader["associatedClient"] as string;
+                            string? issuer = reader["issuer"] as string;
+
+                            accessToken.value = accessTokenValue;
+                            accessToken.state = state;
+                            accessToken.ssoUsed = ssoUsed;
+                            accessToken.isSSO = isSSO;
+                            accessToken.isActive = isActive;
+                            accessToken.scopes = scopes;
+                            accessToken.expirationAt = (DateTime)expirationAt;
+                            accessToken.associatedClient = associatedClient;
+                            accessToken.issuer = issuer;
+
+                            return accessToken;
+                        }
+                    }
+                }
+                return null;
+            }
+
+            public static Model.RefreshToken GetRefreshTokenByTokenValue(string tokenValue)
+            {
+                Model.RefreshToken refreshToken = new Model.RefreshToken();
+                string query = "SELECT value, isActive, expirationAt, associatedClient, issuer " +
+                               "FROM RefreshToken " +
+                               "WHERE value = @TokenValue " +
+                               "LIMIT 1";
+                bool connected = RDS.TryConnect();  
+                if (connected)
+                {
+                    GLogger.Log("RDS-RefreshToken", $"Start retro token for token: {tokenValue}");
+                    MySqlCommand command = new MySqlCommand(query, RDS.conn);
+                    command.Parameters.AddWithValue("@TokenValue", tokenValue);
+
+                    using (MySqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            string? value = reader["value"] as string;
+                            bool isActive = reader.GetBoolean(reader.GetOrdinal("isActive"));
+                            DateTime? expirationAt = reader.GetDateTime(reader.GetOrdinal("expirationAt"));
+                            string? associatedClient = reader["associatedClient"] as string;
+                            string? issuer = reader["issuer"] as string;
+
+                            refreshToken.value = value;
+                            refreshToken.isActive = isActive;
+                            refreshToken.expirationAt = (DateTime)expirationAt;
+                            refreshToken.associatedClient = associatedClient;
+                            refreshToken.issuer = issuer;
+
+                            return refreshToken;
+                        }
+                    }
+                }
+                GLogger.LogYellow("WARN", "RDS-RefreshToken", $"Failed to find token {tokenValue}!");
+                return null;
+            }
+
             public static bool CheckAndValidateRefreshtokenFromClient(string clientId)
             {
                 DeepCleanExpiredRefreshToken();
