@@ -1,8 +1,10 @@
 ﻿using GuardianService.Configs;
+using GuardianService.Model;
 using GuardianService.Util;
 using Microsoft.Extensions.Logging.Abstractions;
 using MySql.Data.MySqlClient;
 using MySqlX.XDevAPI;
+using Org.BouncyCastle.Utilities;
 using System.Data;
 using YamlDotNet.Serialization.NodeDeserializers;
 
@@ -329,6 +331,7 @@ namespace GuardianService.Services.AWS
                                 int rowsAffected = updateCommand.ExecuteNonQuery();
                                 if(rowsAffected > 0)
                                 {
+
                                     GLogger.LogGreen("SUCCESS", "RDS-AccessToken", $"{clientId} token been refreshed with new expiration time!");
                                     Model.AccessToken refreshedToken = new Model.AccessToken();
                                     refreshedToken.value = accessTokenValue;
@@ -385,38 +388,156 @@ namespace GuardianService.Services.AWS
                 return Util.Data.DUMMY_VOID_TOKEN(clientId);
             }
 
+            public static bool CheckAndValidateRefreshtokenFromClient(string clientId)
+            {
+                DeepCleanExpiredRefreshToken();
+                string getValidTokenQuery = "SELECT value, isActive, expirationAt, associatedClient, lastAssociateAccessToken " +
+                               "FROM RefreshToken " +
+                               "WHERE associatedClient = @ClientId " +
+                                      "AND expirationAt > NOW()" +
+                                      "AND isActive = true" +
+                               "LIMIT 1";
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-RefreshToken", $"Start indexing refresh token for client: {clientId}");
+                    MySqlCommand command = new MySqlCommand(getValidTokenQuery, RDS.conn);
+                    command.Parameters.AddWithValue("@ClientId", clientId);
+
+                    using (MySqlDataReader reader = command.ExecuteReader())
+                    {
+                        if(reader.Read()) 
+                        {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            public static string GetRefreshTokenValueFromClientId(string clientId)
+            {
+
+                string query = @"SELECT value FROM RefreshToken WHERE associatedClient = @ClientId LIMIT 1";
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-RefreshToken", $"Start get refresh token value for client: {clientId}");
+                    MySqlCommand command = new MySqlCommand(query, RDS.conn);
+                    command.Parameters.AddWithValue("@ClientId", clientId);
+
+                    using (MySqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            string? refreshTokenValue = reader["value"] as string;
+                            return refreshTokenValue!;
+                        }
+                    }
+                }
+                GLogger.LogRed("ERR", "RDS-GetRefreshToken", $"Failed to retrieve refresh token value for client {clientId}");
+                return "error";
+            }
+
+            public static void DeepCleanExpiredRefreshToken()
+            {
+                string updateQuery = "UPDATE RefreshToken SET isActive = false " +
+                                     "WHERE isActive = true " +
+                                     "AND expirationAt < NOW()";
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-RefreshToken", "Start updating expired refresh tokens to inactive");
+
+                    MySqlCommand updateCommand = new MySqlCommand(updateQuery, RDS.conn);
+                    int rowsAffected = updateCommand.ExecuteNonQuery();
+
+                    GLogger.Log("RDS-RefreshToken", $"Updated {rowsAffected} tokens to inactive");
+                }
+            }
+
+            public static void DeepCleanExpiredAccessToken()
+            {
+                string updateQuery = "UPDATE AccessToken SET isActive = false " +
+                                     "WHERE isActive = true AND (expirationAt < NOW() " +
+                                     "OR state = 'SUSPENDED' " +
+                                     "OR state = 'EXPIRED' " +
+                                     "OR state = 'REVOKED' " +
+                                     "OR state = 'LOCKED')";
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-accessToken", "Start updating expired access tokens to inactive");
+
+                    MySqlCommand updateCommand = new MySqlCommand(updateQuery, RDS.conn);
+                    int rowsAffected = updateCommand.ExecuteNonQuery();
+
+                    GLogger.Log("RDS-accessToken", $"Updated {rowsAffected} tokens to inactive");
+                }
+            }
+
             public static async Task<Model.AccessToken> CreateNewAccessTokenAttachRefreshToken(string clientId)
             {
+                DeepCleanExpiredAccessToken();
                 string accessTokenValue = await Services.AWS.KMS.GetAccessToken();
-                string refreshTokenValue = await Services.AWS.KMS.GetRefreshToken();
+                string newRefreshTokenValue = await Services.AWS.KMS.GetRefreshToken();
 
-                Model.RefreshToken refreshToken = new Model.RefreshToken();
-                refreshToken.value = refreshTokenValue;
-                refreshToken.isActive = true;
-                refreshToken.createdAt = DateTime.UtcNow;
-                refreshToken.expirationDuration = (int)GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_30D!;
-                refreshToken.expirationAt = Services.Auth.CalculateExpirationDateTime(DateTime.UtcNow, (int)GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_30D!);
-                refreshToken.associatedClient = clientId;
-                refreshToken.issuer = "Guardian";
-                refreshToken.lastAssociatedAccessToken = accessTokenValue;
-                SaveNewRefreshToken(refreshToken);
+                //needs to check if current client has a valid refresh token.
+                bool liveRefreshTokenExist = CheckAndValidateRefreshtokenFromClient(clientId);
+                if (liveRefreshTokenExist) 
+                {
+                    string currentRefreshTokenValue = GetRefreshTokenValueFromClientId(clientId);
+                    Model.AccessToken accessToken = new Model.AccessToken();
+                    accessToken.value = accessTokenValue;
+                    accessToken.isSSO = false;
+                    accessToken.ssoUsed = false;
+                    accessToken.scopes = "currently no scopes";
+                    accessToken.issuer = "Guardian";
+                    accessToken.refreshToken = currentRefreshTokenValue;
+                    accessToken.createdAt = DateTime.UtcNow;
+                    accessToken.expirationAt = Services.Auth.CalculateExpirationDateTime(DateTime.UtcNow, (int)GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_10M!);
+                    accessToken.expirationDuration = (int)GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_10M;
+                    accessToken.isActive = true;
+                    accessToken.state = GUARDIAN_CONFIGS.OAuth.TOKEN_STATE_ISSUED;
+                    accessToken.associatedClient = clientId;
+                    SaveNewAccessToken(accessToken);
 
-                Model.AccessToken accessToken = new Model.AccessToken();
-                accessToken.value = accessTokenValue;
-                accessToken.isSSO = false;
-                accessToken.ssoUsed = false;
-                accessToken.scopes = "currently no scopes";
-                accessToken.issuer = "Guardian";
-                accessToken.refreshToken = refreshTokenValue;
-                accessToken.createdAt = DateTime.UtcNow;
-                accessToken.expirationAt = Services.Auth.CalculateExpirationDateTime(DateTime.UtcNow, (int)GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_10M!);
-                accessToken.expirationDuration = (int)GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_10M;
-                accessToken.isActive = true;
-                accessToken.state = GUARDIAN_CONFIGS.OAuth.TOKEN_STATE_ISSUED;
-                accessToken.associatedClient = clientId;
-                SaveNewAccessToken(accessToken);
+                    return accessToken;
 
-                return accessToken;
+                }
+                else
+                {
+                    Model.RefreshToken newRefreshToken = new Model.RefreshToken();
+                    newRefreshToken.value = newRefreshTokenValue;
+                    newRefreshToken.isActive = true;
+                    newRefreshToken.createdAt = DateTime.UtcNow;
+                    newRefreshToken.expirationDuration = (int)GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_30D!;
+                    newRefreshToken.expirationAt = Services.Auth.CalculateExpirationDateTime(DateTime.UtcNow, (int)GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_30D!);
+                    newRefreshToken.associatedClient = clientId;
+                    newRefreshToken.issuer = "Guardian";
+                    newRefreshToken.lastAssociatedAccessToken = accessTokenValue;
+                    SaveNewRefreshToken(newRefreshToken);
+
+                    Model.AccessToken accessToken = new Model.AccessToken();
+                    accessToken.value = accessTokenValue;
+                    accessToken.isSSO = false;
+                    accessToken.ssoUsed = false;
+                    accessToken.scopes = "currently no scopes";
+                    accessToken.issuer = "Guardian";
+                    accessToken.refreshToken = newRefreshTokenValue;
+                    accessToken.createdAt = DateTime.UtcNow;
+                    accessToken.expirationAt = Services.Auth.CalculateExpirationDateTime(DateTime.UtcNow, (int)GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_10M!);
+                    accessToken.expirationDuration = (int)GUARDIAN_CONFIGS.OAuth.TOKEN_LIFE_SPAN_10M;
+                    accessToken.isActive = true;
+                    accessToken.state = GUARDIAN_CONFIGS.OAuth.TOKEN_STATE_ISSUED;
+                    accessToken.associatedClient = clientId;
+                    SaveNewAccessToken(accessToken);
+
+                    return accessToken;
+                }
+                
             }
         }
     }

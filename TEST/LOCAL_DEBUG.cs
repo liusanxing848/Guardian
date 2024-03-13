@@ -1,10 +1,24 @@
 ﻿using GuardianService.Configs;
+using Org.BouncyCastle.Tls;
 
 namespace GuardianService.TEST
 {
     public class LOCAL_DEBUG
     {
-        public static void SHOW_GUARDIAN_CONFIGS()
+        public static async Task RUN_TEST()
+        {
+            //SHOW_GUARDIAN_CONFIGS();
+            //GuardianService.Util.Guardian.RunAppConnectionCheckList();
+            //GuardianService.Util.Data.AddOauthClient(); //only use when need add new client
+            //GuardianService.TEST.LOCAL_DEBUG.VALIDATE_SAMPLE_OAUTH_CLIENT();
+            //await GET_JWT();
+            //await GetAccessToken();
+            //await GetRefreshToken();
+            //DEEP_CLEAN_REFRESH_TOKEN_TEST();
+            //DEEP_CLEAN_ACCESS_TOKEN_TEST();
+            //GET_REFRESHTOKEN_VALUE_FROM_CLIENTID("77b177aa3835477cb709b7b6b3322c71");
+        }
+        private static void SHOW_GUARDIAN_CONFIGS()
         {
             Console.WriteLine($"RDS SERVER: {GUARDIAN_CONFIGS.RDS.SERVER}\n" +
                               $"RDS DATABASE: {GUARDIAN_CONFIGS.RDS.DATABASE}\n" +
@@ -17,27 +31,27 @@ namespace GuardianService.TEST
                               $"KMS REGION: {GUARDIAN_CONFIGS.KMS.REGION}");
         }
 
-        public static void VALIDATE_SAMPLE_OAUTH_CLIENT()
+        private static void VALIDATE_SAMPLE_OAUTH_CLIENT()
         {
             string clientId = "77b177aa3835477cb709b7b6b3322c71";
             string clientSecret = "VJdunXmoTD8qDXwEkJs1Mb7p4Ihz20G2";
             Services.Auth.ValidateOAuthClient(clientId, clientSecret);
         }
 
-        public static async Task GET_PUBLIC_KEY()
+        private static async Task GET_PUBLIC_KEY()
         {
             await Services.AWS.KMS.GetPublicKey();
         }
-        public static async Task GET_JWT()
+        private static async Task GET_JWT()
         {
             await Services.AWS.KMS.GetJWTWithPayloadOnly(new { });
         }
-        public static async Task GetAccessToken()
+        private static async Task GetAccessToken()
         {
             await Services.AWS.KMS.GetAccessToken();
         }
 
-        public static async Task GetRefreshToken()
+        private static async Task GetRefreshToken()
         {
             await Services.AWS.KMS.GetRefreshToken();
         }
@@ -58,6 +72,21 @@ namespace GuardianService.TEST
             token.state = GUARDIAN_CONFIGS.OAuth.TOKEN_STATE_ACTIVE;
             token.issuer = "Guardian";
             Services.AWS.RDS.Auth.SaveNewAccessToken(token);
+        }
+
+        private static void DEEP_CLEAN_REFRESH_TOKEN_TEST()
+        {
+            Services.AWS.RDS.Auth.DeepCleanExpiredRefreshToken();
+        }
+
+        private static void DEEP_CLEAN_ACCESS_TOKEN_TEST()
+        {
+            Services.AWS.RDS.Auth.DeepCleanExpiredAccessToken();
+        }
+        private static void GET_REFRESHTOKEN_VALUE_FROM_CLIENTID(string clientId)
+        {
+            string value = Services.AWS.RDS.Auth.GetRefreshTokenValueFromClientId(clientId);
+            Console.WriteLine("TEST, Refreshtoken value: " + value);
         }
     }
 }

@@ -53,13 +53,7 @@ app.MapControllers();
 GuardianService.Util.Guardian.InitializeAppSettings();
 
 //test below
-//GuardianService.TEST.LOCAL_DEBUG.SHOW_GUARDIAN_CONFIGS();
-//GuardianService.Util.Guardian.RunAppConnectionCheckList();
-// GuardianService.Util.Data.AddOauthClient(); //only use when need add new client
-//GuardianService.TEST.LOCAL_DEBUG.VALIDATE_SAMPLE_OAUTH_CLIENT();
-//await GuardianService.TEST.LOCAL_DEBUG.GET_JWT();
-//await GuardianService.Services.Auth.getAccessToken("77b177aa3835477cb709b7b6b3322c71");
-//await GuardianService.TEST.LOCAL_DEBUG.GetAccessToken();
-//await GuardianService.TEST.LOCAL_DEBUG.GetRefreshToken();
+await GuardianService.TEST.LOCAL_DEBUG.RUN_TEST();
+
 
 app.Run();
