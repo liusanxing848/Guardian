@@ -88,5 +88,7 @@ namespace GuardianService.TEST
             string value = Services.AWS.RDS.Auth.GetRefreshTokenValueFromClientId(clientId);
             Console.WriteLine("TEST, Refreshtoken value: " + value);
         }
+
+        
     }
 }
