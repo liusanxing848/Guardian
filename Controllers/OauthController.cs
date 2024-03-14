@@ -3,6 +3,7 @@ using GuardianService.Services.AWS;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using System.Diagnostics.Eventing.Reader;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -338,6 +339,74 @@ namespace GuardianService.Controllers
                 // "jwt" property not found in the JSON body
                 return BadRequest("bad request.");
             }
+        }
+
+        [HttpPost("revokeAccessToken")]
+        [AllowAnonymous]
+        public IActionResult RevokeAccessToken([FromHeader(Name = "Authorization")] string authorization, [FromBody] JsonElement jsonElement)
+        {
+            if (string.IsNullOrWhiteSpace(authorization) || !authorization.StartsWith("Basic "))
+            {
+                //await Console.Out.WriteLineAsync("failed at the header");
+                return Unauthorized();
+            }
+
+            // Extract credentials from Authorization header
+            string encodedCredentials = authorization.Substring("Basic ".Length).Trim();
+            string decodedCredentials = Encoding.UTF8.GetString(Convert.FromBase64String(encodedCredentials));
+            string[] headerCredentials = decodedCredentials.Split(':');
+
+            if (headerCredentials.Length != 2)
+            {
+                //await Console.Out.WriteLineAsync("failed at wrong credential format");
+
+                return Unauthorized();
+            }
+
+            string clientId = headerCredentials[0];
+            string clientSecret = headerCredentials[1];
+
+            //Validate client credentials
+            bool clientValidated = Services.Auth.ValidateOAuthClient(clientId, clientSecret);
+
+            if (!clientValidated)
+            {
+                //await Console.Out.WriteLineAsync("failed to verify client");
+                return Unauthorized();
+            }
+
+
+            //Working on Body
+            if (jsonElement.TryGetProperty("accessToken", out JsonElement accessTokenElement))
+            {
+                string accessTokenVal = accessTokenElement.GetString()!;
+
+                bool revoked = Services.Auth.RevokeAccessToken(accessTokenVal, clientId);
+                
+                if (revoked)
+                {
+                    dynamic successBody = new
+                    {
+                        accesstoken = accessTokenVal,
+                        status = "REVOKED"
+                    };
+                    return Ok(successBody);
+                }
+                else
+                {
+                    dynamic errorBody = new
+                    {
+                        message = $"Failed to revoke this access token: {accessTokenVal}"
+                    };
+                    return Ok(errorBody);
+                }
+            }
+            dynamic badRequestBody = new
+            {
+                message = $"Failed to revoke this access token!"
+            };
+
+            return Ok(badRequestBody);
         }
     }
 }

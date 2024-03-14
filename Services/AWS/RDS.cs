@@ -477,8 +477,8 @@ namespace GuardianService.Services.AWS
                 string getValidTokenQuery = "SELECT value, isActive, expirationAt, associatedClient, lastAssociateAccessToken " +
                                "FROM RefreshToken " +
                                "WHERE associatedClient = @ClientId " +
-                                      "AND expirationAt > NOW()" +
-                                      "AND isActive = true" +
+                                      "AND expirationAt > NOW() " +
+                                      "AND isActive = true " +
                                "LIMIT 1";
 
                 bool connected = RDS.TryConnect();
@@ -492,6 +492,7 @@ namespace GuardianService.Services.AWS
                     {
                         if(reader.Read()) 
                         {
+                            GLogger.Log("RDS-Refreshtoken", "Found active refresh token!");
                             return true;
                         }
                     }
@@ -621,6 +622,36 @@ namespace GuardianService.Services.AWS
                     return accessToken;
                 }
                 
+            }
+
+            public static bool RevokeAccessTokenByTokenValue(string accessTokenVal, string clientId)
+            {
+                string updateQuery = @"UPDATE AccessToken SET isActive = false, state = 'REVOKED' 
+                                     WHERE accessToken = @tokenValue 
+                                     AND associatedClient = @ClientId";
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-accessToken", "Start updating expired access tokens to inactive");
+
+                    MySqlCommand updateCommand = new MySqlCommand(updateQuery, RDS.conn);
+                    updateCommand.Parameters.AddWithValue("@tokenValue", accessTokenVal);
+                    updateCommand.Parameters.AddWithValue("@ClientId", clientId);
+                    int rowsAffected = updateCommand.ExecuteNonQuery();
+
+                    if (rowsAffected > 0) 
+                    {
+                        GLogger.LogYellow("Success", "RevokeToken", "AccessToken been successfully revoked!");
+                        return true;
+                    }
+                    else
+                    {
+                        GLogger.LogYellow("ERR", "RevokeToken", "Can't locate this token!");
+                        return false;
+                    }
+                }
+                return false;
             }
         }
     }
