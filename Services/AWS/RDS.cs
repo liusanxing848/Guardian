@@ -653,6 +653,37 @@ namespace GuardianService.Services.AWS
                 }
                 return false;
             }
+
+            public static bool RevokeRefreshTokenByTokenValue(string refreshTokenVal, string clientId)
+            {
+                
+                string updateQuery = @"UPDATE RefreshToken SET isActive = false 
+                                     WHERE value = @TokenValue 
+                                     AND associatedClient = @ClientId";
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-accessToken", "Start updating expired refresh token to inactive");
+
+                    MySqlCommand updateCommand = new MySqlCommand(updateQuery, RDS.conn);
+                    updateCommand.Parameters.AddWithValue("@TokenValue", refreshTokenVal);
+                    updateCommand.Parameters.AddWithValue("@ClientId", clientId);
+                    int rowsAffected = updateCommand.ExecuteNonQuery();
+
+                    if (rowsAffected > 0)
+                    {
+                        GLogger.LogYellow("Success", "RevokeToken", "RefreshToken been successfully revoked!");
+                        return true;
+                    }
+                    else
+                    {
+                        GLogger.LogYellow("ERR", "RevokeToken", "Can't locate this token!");
+                        return false;
+                    }
+                }
+                return false;
+            }
         }
     }
 }

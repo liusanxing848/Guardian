@@ -3,6 +3,7 @@ using GuardianService.Services.AWS;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using Org.BouncyCastle.Asn1.Cms;
 using System.Diagnostics.Eventing.Reader;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -407,6 +408,158 @@ namespace GuardianService.Controllers
             };
 
             return Ok(badRequestBody);
+        }
+
+        [HttpPost("revokeRefreshToken")]
+        [AllowAnonymous]
+        public IActionResult RevokeRefreshToken([FromHeader(Name = "Authorization")] string authorization, [FromBody] JsonElement jsonElement)
+        {
+            if (string.IsNullOrWhiteSpace(authorization) || !authorization.StartsWith("Basic "))
+            {
+                //await Console.Out.WriteLineAsync("failed at the header");
+                return Unauthorized();
+            }
+
+            // Extract credentials from Authorization header
+            string encodedCredentials = authorization.Substring("Basic ".Length).Trim();
+            string decodedCredentials = Encoding.UTF8.GetString(Convert.FromBase64String(encodedCredentials));
+            string[] headerCredentials = decodedCredentials.Split(':');
+
+            if (headerCredentials.Length != 2)
+            {
+                //await Console.Out.WriteLineAsync("failed at wrong credential format");
+
+                return Unauthorized();
+            }
+
+            string clientId = headerCredentials[0];
+            string clientSecret = headerCredentials[1];
+
+            //Validate client credentials
+            bool clientValidated = Services.Auth.ValidateOAuthClient(clientId, clientSecret);
+            if (!clientValidated)
+            {
+                //await Console.Out.WriteLineAsync("failed to verify client");
+                return Unauthorized();
+            }
+
+
+            //Working on Body
+            if (jsonElement.TryGetProperty("refreshToken", out JsonElement refreshTokenTokenElement))
+            {
+                string refreshTokenVal = refreshTokenTokenElement.GetString()!;
+
+                bool revoked = Services.Auth.RevokeRefreshToken(refreshTokenVal, clientId);
+
+                if (revoked)
+                {
+                    dynamic successBody = new
+                    {
+                        refreshToken = refreshTokenVal,
+                        status = "REVOKED"
+                    };
+                    return Ok(successBody);
+                }
+                else
+                {
+                    dynamic errorBody = new
+                    {
+                        message = $"Failed to revoke this refresh token: {refreshTokenVal}"
+                    };
+                    return Ok(errorBody);
+                }
+            }
+            dynamic badRequestBody = new
+            {
+                message = $"Failed to revoke this refresh token!"
+            };
+
+            return Ok(badRequestBody);
+        }
+
+        [HttpPost("refreshAccessToken")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RefreshAccessToken([FromHeader(Name = "Authorization")] string authorization, [FromBody] JsonElement jsonElement)
+        {
+            if (string.IsNullOrWhiteSpace(authorization) || !authorization.StartsWith("Basic "))
+            {
+                //await Console.Out.WriteLineAsync("failed at the header");
+                return Unauthorized();
+            }
+
+            // Extract credentials from Authorization header
+            string encodedCredentials = authorization.Substring("Basic ".Length).Trim();
+            string decodedCredentials = Encoding.UTF8.GetString(Convert.FromBase64String(encodedCredentials));
+            string[] headerCredentials = decodedCredentials.Split(':');
+
+            if (headerCredentials.Length != 2)
+            {
+                //await Console.Out.WriteLineAsync("failed at wrong credential format");
+
+                return Unauthorized();
+            }
+
+            string clientId = headerCredentials[0];
+            string clientSecret = headerCredentials[1];
+
+            //Validate client credentials
+            bool clientValidated = Services.Auth.ValidateOAuthClient(clientId, clientSecret);
+            if (!clientValidated)
+            {
+                //await Console.Out.WriteLineAsync("failed to verify client");
+                return Unauthorized();
+            }
+
+
+            //Working on Body
+            if (jsonElement.TryGetProperty("refreshToken", out JsonElement refreshTokenTokenElement))
+            {
+                string refreshTokenVal = refreshTokenTokenElement.GetString()!;
+
+
+                Model.RefreshToken refreshToken = Services.Auth.GetRrefreshTokenByValue(refreshTokenVal);
+                if(refreshToken == null) 
+                {
+                    return Ok("Bad Token, Unauthorized.");
+                }
+
+                if (refreshToken.associatedClient != clientId)
+                {
+                    dynamic errorOwnershipBody = new
+                    {
+                        message = "Does not find associate token under this client!"
+                    };
+                    return Ok(errorOwnershipBody);
+                }
+                else if (refreshToken.associatedClient == clientSecret && refreshToken.isActive == false)
+                {
+                    dynamic expiredToken = new
+                    {
+                        message = "This token is expired, please request new refreshToken"
+                    };
+                    return Ok(expiredToken);
+                }
+
+                Model.AccessToken? returningTokenObj = await Services.Auth.getAccessToken(clientId);
+                if (returningTokenObj != null)
+                {
+                    dynamic liveTokenBody = new
+                    {
+                        accessToken = returningTokenObj.value,
+                        isSSO = returningTokenObj.isSSO,
+                        ssoUsed = returningTokenObj.ssoUsed,
+                        isActive = returningTokenObj.isActive,
+                        state = returningTokenObj.state,
+                        scopes = returningTokenObj.scopes,
+                        expirationAt = returningTokenObj.expirationAt,
+                        associatedClient = returningTokenObj.associatedClient,
+                        issuer = returningTokenObj.issuer,
+                    };
+                    return Ok(liveTokenBody);
+                }
+                return Ok("Server side issue, please get new token and try again.");
+            }
+            return Ok("Check request body, error parsing out [refreshToken] field");
         }
     }
 }

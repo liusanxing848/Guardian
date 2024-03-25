@@ -90,3 +90,17 @@ implement:
 docker command build a container from image: docker run --name guardian_midterm_container -d -p 9090:8080 guardian_midterm
 then start the container: docker start [containerId]
 Port change: 9090 or 9091?
+
+
+13-Mar
+Completed: Implemented revoke access token service, and publish the endpoint. 
+fix some bug that Query does not contain proper space and results in syntax error, so in the future the query should use @ in front of the double quotation.
+
+todo: 
+revoke refresh token, 
+refresh token to fresh current access token. 
+
+14-Mar
+Completed: Revoke Refresh Token(from back to front)
+todo:
+refresh token to get new access token

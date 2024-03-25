@@ -74,6 +74,12 @@ namespace GuardianService.Services
         {
             return Services.AWS.RDS.Auth.RevokeAccessTokenByTokenValue(accessToken, clientId);
         }
+
+        public static bool RevokeRefreshToken(string refreshToken, string clientId)
+        {
+            Console.WriteLine("enter services.auth");
+            return Services.AWS.RDS.Auth.RevokeRefreshTokenByTokenValue(refreshToken, clientId);
+        }
     }
 }
 
