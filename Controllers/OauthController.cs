@@ -444,7 +444,7 @@ namespace GuardianService.Controllers
             }
 
 
-            //Working on Body
+            //Working on Body2
             if (jsonElement.TryGetProperty("refreshToken", out JsonElement refreshTokenTokenElement))
             {
                 string refreshTokenVal = refreshTokenTokenElement.GetString()!;
@@ -561,5 +561,7 @@ namespace GuardianService.Controllers
             }
             return Ok("Check request body, error parsing out [refreshToken] field");
         }
+
+
     }
 }

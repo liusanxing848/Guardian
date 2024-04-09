@@ -123,6 +123,35 @@ namespace GuardianService.Services.AWS
             }
         }
 
+        public static async Task<string> GetRandomNumber()
+        {
+            try
+            {
+                dynamic request = new GenerateRandomRequest
+                {
+                    NumberOfBytes = 4
+                };
+
+                GenerateRandomResponse response = await kmsClient!.GenerateRandomAsync(request);
+
+                byte[] randomBytes = response.Plaintext.ToArray();
+
+                // Convert 4 bytes to an unsigned 32-bit integer
+                uint randomValue = BitConverter.ToUInt32(randomBytes, 0);
+
+                // Ensure the value is within the 0-999999 range
+                uint sixDigitNumber = randomValue % 1000000;
+                string code = sixDigitNumber.ToString();
+                GLogger.LogGreen("SUCCESS", "GuardianCode", $"Value: {code}");
+                return code;
+            }
+            catch (Exception ex)
+            {
+                GLogger.LogRed("ERR", "AccessToken", $"Failed to get Guardian code, Reason: " + ex.Message);
+                return "error";
+            }
+        }
+
         public static async Task<string> GetRefreshToken()
         {
             try
@@ -144,6 +173,64 @@ namespace GuardianService.Services.AWS
                 return "error";
             }
         }
+
+        public static string EncryptNumericCode(string numericCode)
+        {
+            using (Aes aesAlg = Aes.Create())
+            {
+                aesAlg.GenerateKey();
+                aesAlg.GenerateIV();
+
+                ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
+
+                using (MemoryStream msEncrypt = new MemoryStream())
+                {
+                    using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
+                    {
+                        using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
+                        {
+                            swEncrypt.Write(numericCode);
+                        }
+                    }
+                    // Convert the encrypted bytes to a Base64 string
+                    return Convert.ToBase64String(msEncrypt.ToArray()) + ":" +
+                           Convert.ToBase64String(aesAlg.Key) + ":" +
+                           Convert.ToBase64String(aesAlg.IV);
+                }
+            }
+        }
+
+        public static string DecryptHashtoCode(string hash)
+        {
+            // Split the combined string to get the cipherText, Key, and IV
+            string[] parts = hash.Split(':');
+            if (parts.Length != 3)
+                throw new ArgumentException("The hash does not contain all required parts.");
+
+            byte[] cipherText = Convert.FromBase64String(parts[0]);
+            byte[] Key = Convert.FromBase64String(parts[1]);
+            byte[] IV = Convert.FromBase64String(parts[2]);
+
+            using (Aes aesAlg = Aes.Create())
+            {
+                aesAlg.Key = Key;
+                aesAlg.IV = IV;
+
+                ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+
+                using (MemoryStream msDecrypt = new MemoryStream(cipherText))
+                {
+                    using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
+                    {
+                        using (StreamReader reader = new StreamReader(csDecrypt))
+                        {
+                            return reader.ReadToEnd();
+                        }
+                    }
+                }
+            }
+        }
+    
 
         public static bool VerifyJwt(string jwtToken, string publicKeyBase64)
         {
@@ -215,5 +302,6 @@ namespace GuardianService.Services.AWS
             rsaProvider.ImportSubjectPublicKeyInfo(publicKeyBytes, out _);
             return rsaProvider;
         }
+
     }
 }

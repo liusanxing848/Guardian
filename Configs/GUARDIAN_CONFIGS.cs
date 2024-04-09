@@ -21,6 +21,11 @@ namespace GuardianService.Configs
             public static RegionEndpoint REGION = RegionEndpoint.USWest2;
         }
 
+        public static class KMSENCRYPT
+        {
+            public static string? ARN;
+            public static RegionEndpoint REGION = RegionEndpoint.USWest2;
+        }
         public static class OAuth
         {
             public static int? TOKEN_LIFE_SPAN_30S;

@@ -104,3 +104,12 @@ refresh token to fresh current access token.
 Completed: Revoke Refresh Token(from back to front)
 todo:
 refresh token to get new access token
+
+blockers:
+kms symmetric key not connected, have to hard code AES encryption
+
+side note: encryption and decryption should be away from the server, should be standa alone protected
+status for the journal can be more, literally, all status should be more
+multiple attemps for generating code should be triggering card lock.
+retail side and issuer side all should use oauth client, however in the demo, they consider as one. 
+logic error: when card remains zero retry to redeem, still have one more try to test

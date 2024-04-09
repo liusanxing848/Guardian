@@ -10,10 +10,12 @@ namespace GuardianService.Util
         {
             string filePath = @"../Guardian/Configs/";
             string kmsConfigFileName = "KMSConfigs.yaml";
+            string kmsEncryptConfigFileName = "KMSEncryptConfigs.yaml";
             string rdsConfigFileName = "RDSConfigs.yaml";
             string oauthConfigFileName = "OAuthConfigs.yaml";
 
             LoadKMSConfigs(filePath + kmsConfigFileName);
+            LoadKMSENCRYPTConfigs(filePath + kmsEncryptConfigFileName);
             LoadRDSConfigs(filePath + rdsConfigFileName);
             LoadOAuthConfigs(filePath + oauthConfigFileName);
 
@@ -30,9 +32,14 @@ namespace GuardianService.Util
             GUARDIAN_CONFIGS.KMS.ARN = kmsConfigObj["ARN"];
             GUARDIAN_CONFIGS.KMS.AWS_SECRET_ACCESS_KEY = kmsConfigObj["AWS_SECRET_ACCESS_KEY"];
             GUARDIAN_CONFIGS.KMS.AWS_ACCESS_KEY_ID = kmsConfigObj["AWS_ACCESS_KEY_ID"];
-
         }
-        
+
+        private static void LoadKMSENCRYPTConfigs(string path)
+        {
+            dynamic kmsConfigObj = DeserializeYAMLtoObject(path);
+            GUARDIAN_CONFIGS.KMSENCRYPT.ARN = kmsConfigObj["ARN"];
+        }
+
         private static void LoadRDSConfigs(string path)
         {
             dynamic rdsConfigObj = DeserializeYAMLtoObject(path);

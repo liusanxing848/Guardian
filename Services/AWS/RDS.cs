@@ -6,6 +6,7 @@ using MySql.Data.MySqlClient;
 using MySqlX.XDevAPI;
 using Org.BouncyCastle.Utilities;
 using System.Data;
+using System.Runtime.CompilerServices;
 using YamlDotNet.Serialization.NodeDeserializers;
 
 namespace GuardianService.Services.AWS
@@ -19,6 +20,15 @@ namespace GuardianService.Services.AWS
         {
             connectionString = $"Server={GUARDIAN_CONFIGS.RDS.SERVER}; " +
                                $"Database={GUARDIAN_CONFIGS.RDS.DATABASE}; " +
+                               $"UID={GUARDIAN_CONFIGS.RDS.USERNAME}; " +
+                               $"password={GUARDIAN_CONFIGS.RDS.PASSWORD}; " +
+                               $"Port={GUARDIAN_CONFIGS.RDS.PORT}; ";
+        }
+
+        public static void ChangeToIssuerDB()
+        {
+            connectionString = $"Server={GUARDIAN_CONFIGS.RDS.SERVER}; " +
+                               $"Database=Issuer; " +
                                $"UID={GUARDIAN_CONFIGS.RDS.USERNAME}; " +
                                $"password={GUARDIAN_CONFIGS.RDS.PASSWORD}; " +
                                $"Port={GUARDIAN_CONFIGS.RDS.PORT}; ";
@@ -390,6 +400,7 @@ namespace GuardianService.Services.AWS
 
             public static Model.AccessToken GetAccessTokenByTokenValue(string tokenValue)
             {
+                DeepCleanExpiredAccessToken();
                 Model.AccessToken accessToken = new Model.AccessToken();
                 string query = "SELECT accessToken, state, ssoUsed, isSSO, isActive, expirationAt, associatedClient, scopes, issuer " +
                                "FROM AccessToken " +
@@ -684,6 +695,278 @@ namespace GuardianService.Services.AWS
                 }
                 return false;
             }
+        }
+
+        public class Validation
+        {
+            public static bool ValidateCard(string SN)
+            {
+
+                RDS.ChangeToIssuerDB();
+
+                string query = "SELECT SN, isValid " +
+                               "FROM Issuer.Cards " +
+                               "WHERE SN = @SN " +
+                                      "AND isValid = true " +
+                               "LIMIT 1";
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-ValidateCard", $"Start Validate Card: {SN}");
+                    MySqlCommand command = new MySqlCommand(query, RDS.conn);
+
+                    command.Parameters.AddWithValue("@SN", SN);
+                    using (MySqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            GLogger.Log("RDS-ValidateCard", "Found valid card");
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+        }
+
+        public class Journal
+        {
+            public static void SaveJournal (Model.Journal journal)
+            {
+                string query = @"
+                                INSERT INTO `Guardian`.`Journal`
+                                (transactionCreateTime, recentUpdateTime, cardSN, associateClient, guardianCodeHash, value, status)
+                                VALUES
+                                (@transactionCreateTime, @recentUpdateTime, @cardSN, @associateClient, @guardianCodeHash, @value, @status)
+                                ";
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    MySqlCommand command = new MySqlCommand(query, RDS.conn);
+
+                    command.Parameters.AddWithValue("@transactionCreateTime", journal.transactionCreateTime);
+                    command.Parameters.AddWithValue("@recentUpdateTime", journal.recentUpdateTime);
+                    command.Parameters.AddWithValue("@cardSN", journal.cardSN);
+                    command.Parameters.AddWithValue("@associateClient", journal.associateClient);
+                    command.Parameters.AddWithValue("@guardianCodeHash", journal.guardianCodeHash);
+                    command.Parameters.AddWithValue("@value", journal.value);
+                    command.Parameters.AddWithValue("@status", journal.status);
+
+                    int result = command.ExecuteNonQuery();
+
+                    if (result > 0)
+                    {
+                        GLogger.LogGreen("SUCCESS", "RDS-Journal", $"Insert Journal successfully!");
+                    }
+                    else
+                    {
+                        GLogger.LogRed("ERR", "RDS-CRUD-Journal", $"Failed to Insert journal");
+                    }
+                }
+            }
+
+            public static bool CheckJournal(Model.Journal journal)
+            {
+                string cardSN = journal.cardSN!;
+                string assoiciateClient = journal.associateClient!;
+                string guardianCodeHash = journal.guardianCodeHash!;
+                string status = journal.status!;
+
+                string query = @"SELECT journalID
+                               FROM Journal
+                               WHERE cardSN = @cardSN
+                               AND associateClient = @assoiciateClient
+                               AND guardianCodeHash = @guardianCodeHash
+                               AND status = @status
+                               LIMIT 1";
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-VERYFY-JOURNAL", $"Start validate Journal");
+                    MySqlCommand command = new MySqlCommand(query, RDS.conn);
+                    command.Parameters.AddWithValue("@cardSN", cardSN);
+                    command.Parameters.AddWithValue("@assoiciateClient", assoiciateClient);
+                    command.Parameters.AddWithValue("@guardianCodeHash", guardianCodeHash);
+                    command.Parameters.AddWithValue("@status", status);
+
+                    using (MySqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            GLogger.Log("RDS-ValidateJournal", "Validate Success");
+                            return true;
+                        }
+                    }
+                }               
+                GLogger.LogRed("ERR", "RDS-CONN", "Failed to connect to RDS, ABORT validate journal action");
+                return false;
+                
+            }
+
+            public static bool CheckExistingJournal(Model.Journal journal)
+            {
+                string cardSN = journal.cardSN!;
+
+                string query = @"SELECT journalID
+                               FROM Journal
+                               WHERE cardSN = @cardSN
+                               LIMIT 1";
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-VERYFY-JOURNAL", $"Start validate Journal");
+                    MySqlCommand command = new MySqlCommand(query, RDS.conn);
+                    command.Parameters.AddWithValue("@cardSN", cardSN);
+
+                    using (MySqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            GLogger.Log("RDS-CheckExistJournal", "Found");
+                            return true;
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+                }
+                GLogger.LogRed("ERR", "RDS-CONN", "Failed to connect to RDS, ABORT check journal action");
+                return true;
+
+            }
+
+            public static string GetGuardianHashFromCardSN(string cardSN)
+            {
+                string query = @"SELECT guardianCodeHash
+                               FROM Journal
+                               WHERE cardSN = @cardSN
+                               AND status = 'REDEEM PENDING'
+                               LIMIT 1";
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-VERYFY-JOURNAL", $"Start validate Journal");
+                    MySqlCommand command = new MySqlCommand(query, RDS.conn);
+                    command.Parameters.AddWithValue("@cardSN", cardSN);
+
+                    using (MySqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            GLogger.Log("RDS-GET Hash", "Found");
+                            string? guardianCodeHash = reader["guardianCodeHash"] as string;
+                            return guardianCodeHash!;
+                        }
+                        else
+                        {
+                            return "error";
+                        }
+                    }
+                }
+                
+                GLogger.LogRed("ERR", "RDS-CONN", "Failed to connect to RDS, ABORT check journal action");
+                return "error";
+            }
+
+            public static void FailedGuardianCodeDeductRetry(string cardSN)
+            {
+                string query = @"UPDATE Journal
+                               SET retryTime = retryTime - 1
+                               WHERE cardSN = @cardSN
+                               AND status = 'REDEEM PENDING'";
+
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-deduct retry", $"Dedcuted 1 retry for card {cardSN}");
+
+                    MySqlCommand updateCommand = new MySqlCommand(query, RDS.conn);
+                    updateCommand.Parameters.AddWithValue("@cardSN", cardSN);
+                    int rowsAffected = updateCommand.ExecuteNonQuery();
+
+                    GLogger.Log("RDS-deductRetry", $"Updated {rowsAffected} to the record");
+                }
+            }
+
+            public static void LockCard(string cardSN) 
+            {
+                string query = @"UPDATE Journal
+                               SET status = 'LOCKED'
+                               WHERE cardSN = @cardSN";
+
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-lockCard", $"{cardSN} been locked");
+
+                    MySqlCommand updateCommand = new MySqlCommand(query, RDS.conn);
+                    updateCommand.Parameters.AddWithValue("@cardSN", cardSN);
+                    int rowsAffected = updateCommand.ExecuteNonQuery();
+
+                    GLogger.Log("RDS-lockCard", $"Updated {rowsAffected} to the record");
+                }
+            }
+
+            public static void StatusChangeToRedeemed(string cardSN) 
+            {
+                string query = @"UPDATE Journal
+                               SET status = 'REDEEMED'
+                               WHERE cardSN = @cardSN";
+
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-RedeemCard", $"{cardSN} been Redeemed");
+
+                    MySqlCommand updateCommand = new MySqlCommand(query, RDS.conn);
+                    updateCommand.Parameters.AddWithValue("@cardSN", cardSN);
+                    int rowsAffected = updateCommand.ExecuteNonQuery();
+
+                    GLogger.Log("RDS-RedeemCard", $"Updated {rowsAffected} to the record");
+                }
+            }
+
+            public static int CheckLeftRetryValue(string cardSN) 
+            {
+                string query = @"SELECT retryTime
+                               FROM Journal
+                               WHERE cardSN = @cardSN
+                               LIMIT 1";
+
+                bool connected = RDS.TryConnect();
+                if (connected)
+                {
+                    GLogger.Log("RDS-Check Retry", $"Start check for card {cardSN}");
+                    MySqlCommand command = new MySqlCommand(query, RDS.conn);
+                    command.Parameters.AddWithValue("@cardSN", cardSN);
+
+                    using (MySqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            int retryTime = reader.GetInt32(reader.GetOrdinal("retryTime"));
+                            GLogger.Log("RDS-GET-retryLeft", $"Found retry left: {retryTime}");
+                            return retryTime;
+                        }
+                        else
+                        {
+                            return -1;
+                        }
+                    }
+                }
+
+                GLogger.LogRed("ERR", "RDS-CONN", "Failed to connect to RDS, ABORT check retryVal action");
+                return -1;
+            }
+
         }
     }
 }
