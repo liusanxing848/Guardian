@@ -18,6 +18,7 @@ namespace GuardianService.Services.AWS
 
         static RDS()
         {
+            GLogger.LogGreen("INIT", "RDS", "Initialize RDS");
             connectionString = $"Server={GUARDIAN_CONFIGS.RDS.SERVER}; " +
                                $"Database={GUARDIAN_CONFIGS.RDS.DATABASE}; " +
                                $"UID={GUARDIAN_CONFIGS.RDS.USERNAME}; " +
@@ -27,6 +28,7 @@ namespace GuardianService.Services.AWS
 
         public static void ChangeToIssuerDB()
         {
+            GLogger.LogYellow("RDS-Config", "RDS", "Switch RDS db");
             connectionString = $"Server={GUARDIAN_CONFIGS.RDS.SERVER}; " +
                                $"Database=Issuer; " +
                                $"UID={GUARDIAN_CONFIGS.RDS.USERNAME}; " +
@@ -35,6 +37,7 @@ namespace GuardianService.Services.AWS
         }
         public static bool CheckAWSRDSConnection()
         {
+            GLogger.LogYellow("STATUS", "RDS", "Checking RDS status...");
             if(!string.IsNullOrEmpty(connectionString)) 
             {
                 try
@@ -84,6 +87,7 @@ namespace GuardianService.Services.AWS
 
         private static bool TryConnect()
         {
+            GLogger.LogYellow("CONN", "RDS", "Connecting to RDS");
             if(conn !=null && conn.State == ConnectionState.Open)
             {
                 return true;
@@ -105,6 +109,7 @@ namespace GuardianService.Services.AWS
 
         public static void CloseConnection()
         {
+            GLogger.LogRed("Conn", "RDS", "Close RDS Connection");
             if(conn != null && conn.State == ConnectionState.Open)
             {
                 conn.Close();
@@ -116,6 +121,7 @@ namespace GuardianService.Services.AWS
         {
             public static void InsertNewOAuthClient(Model.OAuthClient client)
             {
+                GLogger.LogYellow("RDS-AUTH", "RDS", $"Create new OAuth client: {client}");
                 string query = @"
                                 INSERT INTO `Guardian`.`AuthDB`
                                 (clientId, clientSecret, clientName, granttypes, clientStatus, businessCode, isActive)
@@ -150,6 +156,7 @@ namespace GuardianService.Services.AWS
 
             public static bool ValidateOAuthClient(string clientID, string clientSecret)
             {
+                GLogger.LogYellow("RDS-Auth", "Validate", $"Validate OAuth client for: {clientID}");
                 string query = "SELECT clientSecret " +
                                "FROM AuthDB " +
                                "WHERE clientID = @ClientId LIMIT 1";
@@ -183,6 +190,7 @@ namespace GuardianService.Services.AWS
 
             public static KeyValuePair<bool, bool> CheckClientHasLiveToken(string clientId)
             {
+                GLogger.LogYellow("RDS-Auth", "LiveToken", $"Checking client has live token, for client: {clientId}");
                 string query = @"SELECT accessToken
                                FROM AccessToken
                                WHERE associatedClient = @ClientId 
@@ -220,6 +228,7 @@ namespace GuardianService.Services.AWS
 
             public static void SaveNewAccessToken(Model.AccessToken accessToken)
             {
+                GLogger.LogYellow("RDS-AUTH", "access token", $"Preparing create access token: {accessToken}");
                 string query = @"
                                 INSERT INTO `Guardian`.`AccessToken`
                                 (accessToken, ssoUsed, isActive, isSSO, createdAt, expirationAt, expirationDuration, scopes, state, associatedClient, issuer, refreshToken)
@@ -259,6 +268,7 @@ namespace GuardianService.Services.AWS
 
             public static void SaveNewRefreshToken(Model.RefreshToken refreshToken)
             {
+                GLogger.LogYellow("RDS-AUTH", "refresh token", $"Preparing create refresh token: {refreshToken}");
                 string query = @"
                                 INSERT INTO `Guardian`.`RefreshToken`
                                 (value, isActive, createdAt, expirationAt, expirationDuration, associatedClient, issuer, lastAssociateAccessToken)
@@ -294,6 +304,7 @@ namespace GuardianService.Services.AWS
 
             public static async Task<Model.AccessToken> RenewAccessToken (string clientId) 
             {
+                GLogger.LogYellow("RDS-AUTH", "access token", $"Preparing renew access token for client: {clientId}");
                 string query = "SELECT accessToken, state, ssoUsed, isSSO, scopes, refreshToken, issuer " +
                                "FROM AccessToken " +
                                "WHERE associatedClient = @ClientId " +
@@ -400,6 +411,7 @@ namespace GuardianService.Services.AWS
 
             public static Model.AccessToken GetAccessTokenByTokenValue(string tokenValue)
             {
+                GLogger.LogYellow("RDS-Auth", "GetTokenObj", $"get access token object from value: {tokenValue}");
                 DeepCleanExpiredAccessToken();
                 Model.AccessToken accessToken = new Model.AccessToken();
                 string query = "SELECT accessToken, state, ssoUsed, isSSO, isActive, expirationAt, associatedClient, scopes, issuer " +
@@ -446,6 +458,7 @@ namespace GuardianService.Services.AWS
 
             public static Model.RefreshToken GetRefreshTokenByTokenValue(string tokenValue)
             {
+                GLogger.LogYellow("RDS-Auth", "GetTokenObj", $"get refresh token object from value: {tokenValue}");
                 Model.RefreshToken refreshToken = new Model.RefreshToken();
                 string query = "SELECT value, isActive, expirationAt, associatedClient, issuer " +
                                "FROM RefreshToken " +
@@ -484,6 +497,7 @@ namespace GuardianService.Services.AWS
 
             public static bool CheckAndValidateRefreshtokenFromClient(string clientId)
             {
+                GLogger.LogYellow("RDS-Auth", "CheckRefreshToken", $"Check and Validate Refresh token from client: {clientId}");
                 DeepCleanExpiredRefreshToken();
                 string getValidTokenQuery = "SELECT value, isActive, expirationAt, associatedClient, lastAssociateAccessToken " +
                                "FROM RefreshToken " +
@@ -512,7 +526,7 @@ namespace GuardianService.Services.AWS
             }
             public static string GetRefreshTokenValueFromClientId(string clientId)
             {
-
+                GLogger.LogYellow("RDS-AUTH", "RefreshAccessToken", $"Refresh access token from the client: {clientId}");
                 string query = @"SELECT value FROM RefreshToken WHERE associatedClient = @ClientId LIMIT 1";
                 bool connected = RDS.TryConnect();
                 if (connected)
@@ -536,6 +550,7 @@ namespace GuardianService.Services.AWS
 
             public static void DeepCleanExpiredRefreshToken()
             {
+                GLogger.LogYellow("RDS", "Refresh-reset", "Deep Refresh Refresh Token");
                 string updateQuery = "UPDATE RefreshToken SET isActive = false " +
                                      "WHERE isActive = true " +
                                      "AND expirationAt < NOW()";
@@ -554,6 +569,7 @@ namespace GuardianService.Services.AWS
 
             public static void DeepCleanExpiredAccessToken()
             {
+                GLogger.LogYellow("RDS", "Refresh-reset", "Deep Refresh access Token");
                 string updateQuery = "UPDATE AccessToken SET isActive = false " +
                                      "WHERE isActive = true AND (expirationAt < NOW() " +
                                      "OR state = 'SUSPENDED' " +
@@ -575,6 +591,7 @@ namespace GuardianService.Services.AWS
 
             public static async Task<Model.AccessToken> CreateNewAccessTokenAttachRefreshToken(string clientId)
             {
+                GLogger.LogYellow("RDS-Auth", "Create", $"Create new Access Token Linked with RefreshToken for {clientId}");
                 DeepCleanExpiredAccessToken();
                 string accessTokenValue = await Services.AWS.KMS.GetAccessToken();
                 string newRefreshTokenValue = await Services.AWS.KMS.GetRefreshToken();
@@ -637,6 +654,7 @@ namespace GuardianService.Services.AWS
 
             public static bool RevokeAccessTokenByTokenValue(string accessTokenVal, string clientId)
             {
+                GLogger.LogYellow("RDS-Auth", "Revoke", $"Revoke token: {accessTokenVal} for client: {clientId}");
                 string updateQuery = @"UPDATE AccessToken SET isActive = false, state = 'REVOKED' 
                                      WHERE accessToken = @tokenValue 
                                      AND associatedClient = @ClientId";
@@ -667,7 +685,7 @@ namespace GuardianService.Services.AWS
 
             public static bool RevokeRefreshTokenByTokenValue(string refreshTokenVal, string clientId)
             {
-                
+                GLogger.LogYellow("RDS-AUTH", "RevokeToken", $"Revoke Refreshtoken: {refreshTokenVal} for client: {clientId}");
                 string updateQuery = @"UPDATE RefreshToken SET isActive = false 
                                      WHERE value = @TokenValue 
                                      AND associatedClient = @ClientId";
@@ -701,7 +719,7 @@ namespace GuardianService.Services.AWS
         {
             public static bool ValidateCard(string SN)
             {
-
+                GLogger.LogYellow("VALIDATE", "CARD", $"Validate card: {SN}");
                 RDS.ChangeToIssuerDB();
 
                 string query = "SELECT SN, isValid " +
@@ -734,6 +752,7 @@ namespace GuardianService.Services.AWS
         {
             public static void SaveJournal (Model.Journal journal)
             {
+                GLogger.LogYellow("JOURNAL", "Create", "Start Creating journal and save");
                 string query = @"
                                 INSERT INTO `Guardian`.`Journal`
                                 (transactionCreateTime, recentUpdateTime, cardSN, associateClient, guardianCodeHash, value, status)
@@ -768,6 +787,7 @@ namespace GuardianService.Services.AWS
 
             public static bool CheckJournal(Model.Journal journal)
             {
+                GLogger.LogYellow("JOURNAL", "Validate", $"Validate journal for card: {journal.cardSN}");
                 string cardSN = journal.cardSN!;
                 string assoiciateClient = journal.associateClient!;
                 string guardianCodeHash = journal.guardianCodeHash!;
@@ -807,6 +827,7 @@ namespace GuardianService.Services.AWS
 
             public static bool CheckExistingJournal(Model.Journal journal)
             {
+                GLogger.LogYellow("JOURNAL", "Validate", $"Validate existing Journal for card: {journal.cardSN}");
                 string cardSN = journal.cardSN!;
 
                 string query = @"SELECT journalID
@@ -841,6 +862,7 @@ namespace GuardianService.Services.AWS
 
             public static string GetGuardianHashFromCardSN(string cardSN)
             {
+                GLogger.LogYellow("GuardianCode", "GetHashing", $"Get Guardian hashed code for card: {cardSN}");
                 string query = @"SELECT guardianCodeHash
                                FROM Journal
                                WHERE cardSN = @cardSN
@@ -875,6 +897,7 @@ namespace GuardianService.Services.AWS
 
             public static void FailedGuardianCodeDeductRetry(string cardSN)
             {
+                GLogger.LogRed("Redeem", "Faild", "Perform deduct retry by one");
                 string query = @"UPDATE Journal
                                SET retryTime = retryTime - 1
                                WHERE cardSN = @cardSN
@@ -896,6 +919,7 @@ namespace GuardianService.Services.AWS
 
             public static void LockCard(string cardSN) 
             {
+                GLogger.LogRed("Redeem", "Lock", $"Locking card for card Id:{cardSN}");
                 string query = @"UPDATE Journal
                                SET status = 'LOCKED'
                                WHERE cardSN = @cardSN";
@@ -916,6 +940,8 @@ namespace GuardianService.Services.AWS
 
             public static void StatusChangeToRedeemed(string cardSN) 
             {
+
+                GLogger.LogYellow("CARD", "STATUS", $"Change card {cardSN} status to REDEEMED");
                 string query = @"UPDATE Journal
                                SET status = 'REDEEMED'
                                WHERE cardSN = @cardSN";
@@ -936,6 +962,7 @@ namespace GuardianService.Services.AWS
 
             public static int CheckLeftRetryValue(string cardSN) 
             {
+                GLogger.LogGreen("CARD", "Check-retry", $"Checking retry quantity for card: {cardSN}");
                 string query = @"SELECT retryTime
                                FROM Journal
                                WHERE cardSN = @cardSN
