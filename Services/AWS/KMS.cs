@@ -192,6 +192,7 @@ namespace GuardianService.Services.AWS
                             swEncrypt.Write(numericCode);
                         }
                     }
+                    GLogger.LogGreen("SUCCESS", "GUARDIAN-CODE", $"Succesfuly Hashed code: {numericCode}!");
                     // Convert the encrypted bytes to a Base64 string
                     return Convert.ToBase64String(msEncrypt.ToArray()) + ":" +
                            Convert.ToBase64String(aesAlg.Key) + ":" +
@@ -224,6 +225,7 @@ namespace GuardianService.Services.AWS
                     {
                         using (StreamReader reader = new StreamReader(csDecrypt))
                         {
+                            GLogger.LogGreen("SUCCESS", "GUARDIAN-CODE", $"Succesfuly Decrypted hash: {hash}!");
                             return reader.ReadToEnd();
                         }
                     }
@@ -234,6 +236,7 @@ namespace GuardianService.Services.AWS
 
         public static bool VerifyJwt(string jwtToken, string publicKeyBase64)
         {
+            GLogger.LogYellow("VERYFY", "JWT", $"Starting JWT verification for token: {jwtToken}");
             JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
             JwtSecurityToken jwtSecurityToken = handler.ReadJwtToken(jwtToken);
 
@@ -267,6 +270,7 @@ namespace GuardianService.Services.AWS
                 .Replace('+', '-')
                 .Replace('/', '_')
                 .Replace("=", ""); // Remove padding for Base64Url
+            GLogger.Log("BASE_64", $"Encode BYTE TYPE:{input}");
             return output;
         }
 
@@ -276,6 +280,7 @@ namespace GuardianService.Services.AWS
                 .Replace('+', '-')
                 .Replace('/', '_')
                 .TrimEnd('=');
+            GLogger.Log("BASE_64", $"Encode STRING TYPE:{input}");
             return output;
         }
         private static byte[] Base64UrlDecode(string input)
@@ -293,6 +298,7 @@ namespace GuardianService.Services.AWS
             }
 
             var converted = Convert.FromBase64String(output); // Standard base64 decoder
+            GLogger.Log("BASE_64", $"Decode STRING TYPE:{input}");
             return converted;
         }
         private static RSACryptoServiceProvider GetRsaProviderFromBase64EncodedPublicKey(string publicKeyBase64)
@@ -300,6 +306,7 @@ namespace GuardianService.Services.AWS
             byte[] publicKeyBytes = Convert.FromBase64String(publicKeyBase64);
             RSACryptoServiceProvider rsaProvider = new RSACryptoServiceProvider();
             rsaProvider.ImportSubjectPublicKeyInfo(publicKeyBytes, out _);
+            GLogger.LogGreen("INIT", "KMS", "Initializing... create RSA Ctypo Service Provider instance");
             return rsaProvider;
         }
 
